@@ -129,10 +129,11 @@ const Client = sequelize.define('Client', {
   ]
 });
 
-Client.sync({ alter: true }).then(() => {
-  console.log('Client table synced successfully');
-}).catch(error => {
-  console.error('Error syncing Client table:', error);
-});
+//Client.sync({ alter: true }).then(() => {
+ // console.log('Client table synced successfully');
+//}).catch(error => {
+ // console.error('Error syncing Client table:', error);
+// });
 
 export default Client;
+

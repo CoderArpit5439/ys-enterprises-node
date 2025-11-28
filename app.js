@@ -33,7 +33,7 @@ app.use((err, req, res, next) => {
 //   });
 // });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 6000;
 
 // Sync database and start server
 sequelize.authenticate()
