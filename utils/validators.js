@@ -26,6 +26,18 @@ export function validateAdminLoginPayload(payload) {
   }
 }
 
+export function validateAdminCreatePayload(payload) {
+  validateRequiredFields(payload, ["name", "email", "password"]);
+
+  if (!emailRegex.test(String(payload.email).trim())) {
+    throw new ApiError(400, "Please provide a valid email address");
+  }
+
+  if (String(payload.password).trim().length < 6) {
+    throw new ApiError(400, "Password must be at least 6 characters");
+  }
+}
+
 export function validateCustomerPayload(payload, { isUpdate = false } = {}) {
   if (!isUpdate) {
     validateRequiredFields(payload, ["file_no", "client_name"]);

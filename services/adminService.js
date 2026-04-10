@@ -1,40 +1,46 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { QueryTypes } from "sequelize";
+import Admin from "../models/adminModel.js";
 import envconfig from "../config/enviormentconfig.js";
-import { sequelize } from "../config/database.config.js";
 import { ApiError } from "../middlewares/errorMiddleware.js";
 
-function normalizeAdminRow(admin) {
-  if (!admin) {
-    return null;
-  }
-
+function formatAdminPayload(admin) {
   return {
     id: admin.id,
-    name: admin.name || admin.full_name || admin.username || "Admin",
+    name: admin.name,
     email: admin.email,
-    role: admin.role || "admin",
-    passwordHash: admin.password_hash || admin.password,
+    role: admin.role,
   };
 }
 
+export async function createAdmin({ name, email, password }) {
+  const existingAdmin = await Admin.unscoped().findOne({
+    where: { email },
+  });
+
+  if (existingAdmin) {
+    throw new ApiError(409, "Admin email already exists");
+  }
+
+  const admin = await Admin.create({
+    name,
+    email,
+    password,
+  });
+
+  return formatAdminPayload(admin);
+}
+
 export async function loginAdmin({ email, password }) {
-  const [adminRow] = await sequelize.query(
-    `SELECT * FROM ${envconfig.tables.admin} WHERE email = :email LIMIT 1`,
-    {
-      replacements: { email },
-      type: QueryTypes.SELECT,
-    }
-  );
+  const admin = await Admin.scope("withPassword").findOne({
+    where: { email },
+  });
 
-  const admin = normalizeAdminRow(adminRow);
-
-  if (!admin?.passwordHash) {
+  if (!admin?.password) {
     throw new ApiError(401, "Invalid email or password");
   }
 
-  const isPasswordValid = await bcrypt.compare(password, admin.passwordHash);
+  const isPasswordValid = await bcrypt.compare(password, admin.password);
 
   if (!isPasswordValid) {
     throw new ApiError(401, "Invalid email or password");
@@ -54,11 +60,6 @@ export async function loginAdmin({ email, password }) {
 
   return {
     token,
-    admin: {
-      id: admin.id,
-      name: admin.name,
-      email: admin.email,
-      role: admin.role,
-    },
+    admin: formatAdminPayload(admin),
   };
 }

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import envconfig from "./config/enviormentconfig.js";
 import { sequelize } from "./config/database.config.js";
+import Admin from "./models/adminModel.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import workDiaryRoutes from "./routes/workDiaryRoutes.js";
@@ -45,6 +46,8 @@ async function startServer() {
   try {
     await sequelize.authenticate();
     console.log("Database connected successfully");
+    await Admin.sync();
+    console.log("Admin table is ready");
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
