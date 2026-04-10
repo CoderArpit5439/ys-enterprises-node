@@ -2,31 +2,46 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const isProd = process.env.NODE_ENV === 'production';
+const currentEnv = (process.env.NODE_ENV || "development").trim().toLowerCase();
+const isProd = currentEnv === "production";
 
+function readEnv(key, fallback = "") {
+  const value = process.env[key];
+  return typeof value === "string" ? value.trim() : fallback;
+}
+
+function readList(value, fallback = "*") {
+  const source = value || fallback;
+
+  if (source === "*") {
+    return "*";
+  }
+
+  return source
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 const envconfig = {
-  env: process.env.NODE_ENV || "development",
-
-  port: isProd ? process.env.PORT_PROD : process.env.PORT_DEV,
-
+  env: currentEnv,
+  isProd,
+  port: Number(isProd ? readEnv("PORT_PROD", "5000") : readEnv("PORT_DEV", "5000")),
+  jwtSecret: readEnv("JWT_SECRET"),
+  jwtExpiresIn: readEnv("JWT_EXPIRES_IN", "1d"),
+  corsOrigins: readList(readEnv("CORS_ORIGINS", "*")),
+  frontendUrl: readEnv("FRONTEND_URL", "http://localhost:3000"),
   db: {
-    host: isProd ? process.env.DB_HOST_PROD : process.env.DB_HOST_DEV,
-    user: isProd ? process.env.DB_USER_PROD : process.env.DB_USER_DEV,
-    password: isProd ? process.env.DB_PASSWORD_PROD : process.env.DB_PASSWORD_DEV,
-    name: isProd ? process.env.DB_NAME_PROD : process.env.DB_NAME_DEV,
-    secName: isProd ? process.env.MY_FARM_DB : process.env.MY_FARM_DB,
+    host: isProd ? readEnv("DB_HOST_PROD") : readEnv("DB_HOST_DEV"),
+    user: isProd ? readEnv("DB_USER_PROD") : readEnv("DB_USER_DEV"),
+    password: isProd ? readEnv("DB_PASSWORD_PROD") : readEnv("DB_PASSWORD_DEV"),
+    name: isProd ? readEnv("DB_NAME_PROD") : readEnv("DB_NAME_DEV"),
   },
-
-  jwtSecret: process.env.JWT_SECRET,
-
-//   email: {
-//     host: isProd ? process.env.SMTP_HOST_PROD : process.env.SMTP_HOST,
-//     port: isProd ? process.env.SMTP_PORT_PROD : process.env.SMTP_PORT,
-//     user: isProd ? process.env.SMTP_USER_PROD : process.env.SMTP_USER,
-//     pass: isProd ? process.env.SMTP_PASS_PROD : process.env.SMTP_PASS,
-//     fromName: "",
-//   },
+  tables: {
+    admin: readEnv("ADMIN_TABLE", "admin"),
+    customers: readEnv("CUSTOMER_TABLE", "clients"),
+    workDiary: readEnv("WORK_DIARY_TABLE", "work_diary_entries"),
+  },
 };
 
 export default envconfig;
