@@ -5,13 +5,16 @@ import { sequelize } from "./config/database.config.js";
 import Admin from "./models/adminModel.js";
 import Service from "./models/serviceModel.js";
 import Inquiry from "./models/inquiryModel.js";
+import Event from "./models/eventModel.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import workDiaryRoutes from "./routes/workDiaryRoutes.js";
 import serviceRoutes from "./routes/serviceRoutes.js";
 import inquiryRoutes from "./routes/inquiryRoutes.js";
+import eventRoutes from "./routes/eventRoutes.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorMiddleware.js";
 import { seedDefaultServices } from "./services/serviceService.js";
+import { seedDefaultEvents } from "./services/eventService.js";
 
 const app = express();
 
@@ -43,6 +46,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/work-diary", workDiaryRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/inquiry", inquiryRoutes);
+app.use("/api/events", eventRoutes);
 
 notFoundHandler(app);
 app.use(errorHandler);
@@ -57,8 +61,10 @@ async function startServer() {
     console.log("Admin table is ready");
     await Service.sync();
     await Inquiry.sync();
+    await Event.sync();
     await seedDefaultServices();
-    console.log("Service and inquiry tables are ready");
+    await seedDefaultEvents();
+    console.log("Service, inquiry, and event tables are ready");
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

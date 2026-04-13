@@ -109,3 +109,17 @@ export function validateServicePayload(payload, { isUpdate = false } = {}) {
     throw new ApiError(400, "Image URL must start with http:// or https://");
   }
 }
+
+export function validateEventPayload(payload, { isUpdate = false } = {}) {
+  if (!isUpdate) {
+    validateRequiredFields(payload, ["title", "description", "event_date", "event_type"]);
+  }
+
+  if (payload.image_url && !/^https?:\/\//i.test(String(payload.image_url).trim())) {
+    throw new ApiError(400, "Image URL must start with http:// or https://");
+  }
+
+  if (payload.event_date && Number.isNaN(new Date(payload.event_date).getTime())) {
+    throw new ApiError(400, "Event date must be valid");
+  }
+}

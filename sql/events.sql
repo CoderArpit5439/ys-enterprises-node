@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS events (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL UNIQUE,
+  description LONGTEXT NOT NULL,
+  event_date DATE NOT NULL,
+  event_type VARCHAR(100) NOT NULL DEFAULT 'Deadline',
+  image_url VARCHAR(500) NULL,
+  meta_description VARCHAR(255) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_events_date (event_date),
+  INDEX idx_events_active (is_active)
+);

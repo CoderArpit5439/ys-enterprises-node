@@ -43,6 +43,7 @@ const envconfig = {
     workDiary: readEnv("WORK_DIARY_TABLE", "work_diary_entries"),
     services: readEnv("SERVICES_TABLE", "services"),
     inquiries: readEnv("INQUIRIES_TABLE", "inquiries"),
+    events: readEnv("EVENTS_TABLE", "events"),
   },
 };
 
