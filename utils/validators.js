@@ -93,3 +93,19 @@ export function validateInquiryStatus(status) {
     throw new ApiError(400, "Status must be one of new, contacted, converted, or closed");
   }
 }
+
+export function validateServicePayload(payload, { isUpdate = false } = {}) {
+  if (!isUpdate) {
+    validateRequiredFields(payload, ["name", "details"]);
+  }
+
+  if (payload.price !== undefined && payload.price !== null && String(payload.price).trim() !== "") {
+    if (Number.isNaN(Number(payload.price)) || Number(payload.price) < 0) {
+      throw new ApiError(400, "Price must be a valid positive number");
+    }
+  }
+
+  if (payload.image_url && !/^https?:\/\//i.test(String(payload.image_url).trim())) {
+    throw new ApiError(400, "Image URL must start with http:// or https://");
+  }
+}

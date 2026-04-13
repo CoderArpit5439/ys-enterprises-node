@@ -88,3 +88,13 @@ export async function updateInquiryStatus(id, status) {
 
   return inquiry;
 }
+
+export async function deleteInquiry(id) {
+  const inquiry = await Inquiry.findByPk(id);
+
+  if (!inquiry) {
+    throw new ApiError(404, "Inquiry not found");
+  }
+
+  await inquiry.destroy();
+}

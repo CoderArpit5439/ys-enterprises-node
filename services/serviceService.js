@@ -1,5 +1,7 @@
+import { Op } from "sequelize";
 import Service from "../models/serviceModel.js";
 import { ApiError } from "../middlewares/errorMiddleware.js";
+import { validateServicePayload } from "../utils/validators.js";
 
 const defaultServices = [
   {
@@ -86,6 +88,54 @@ export async function listPublicServices() {
   });
 }
 
+function slugifyServiceName(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 255);
+}
+
+function normalizeServicePayload(payload = {}) {
+  const normalizedName = String(payload.name || "").trim();
+
+  return {
+    name: normalizedName,
+    slug: String(payload.slug || slugifyServiceName(normalizedName)).trim().toLowerCase(),
+    price:
+      payload.price === undefined || payload.price === null || String(payload.price).trim() === ""
+        ? null
+        : Number(payload.price),
+    details: String(payload.details || "").trim(),
+    image_url: String(payload.image_url || "").trim(),
+    meta_description: String(payload.meta_description || "").trim(),
+    is_active:
+      payload.is_active === undefined
+        ? true
+        : payload.is_active === true ||
+          payload.is_active === "true" ||
+          payload.is_active === 1 ||
+          payload.is_active === "1",
+  };
+}
+
+async function ensureUniqueServiceSlug(slug, excludeId = null) {
+  const existing = await Service.findOne({
+    where: excludeId ? { slug, id: { [Op.ne]: excludeId } } : { slug },
+  });
+
+  if (existing) {
+    throw new ApiError(400, "A service with this slug already exists");
+  }
+}
+
+export async function listAdminServices() {
+  return Service.findAll({
+    order: [["updated_at", "DESC"]],
+  });
+}
+
 export async function getPublicServiceBySlug(slug) {
   const service = await Service.findOne({
     where: {
@@ -99,6 +149,59 @@ export async function getPublicServiceBySlug(slug) {
   }
 
   return service;
+}
+
+export async function createService(payload) {
+  const normalizedPayload = normalizeServicePayload(payload);
+  validateServicePayload(normalizedPayload);
+
+  if (!normalizedPayload.slug) {
+    throw new ApiError(400, "Slug could not be generated for this service");
+  }
+
+  await ensureUniqueServiceSlug(normalizedPayload.slug);
+  return Service.create(normalizedPayload);
+}
+
+export async function updateService(id, payload) {
+  const service = await Service.findByPk(id);
+
+  if (!service) {
+    throw new ApiError(404, "Service not found");
+  }
+
+  const normalizedPayload = normalizeServicePayload({
+    ...service.toJSON(),
+    ...payload,
+  });
+
+  validateServicePayload(normalizedPayload, { isUpdate: true });
+
+  if (!normalizedPayload.name) {
+    throw new ApiError(400, "Service name is required");
+  }
+
+  if (!normalizedPayload.details) {
+    throw new ApiError(400, "Service details are required");
+  }
+
+  if (!normalizedPayload.slug) {
+    throw new ApiError(400, "Slug could not be generated for this service");
+  }
+
+  await ensureUniqueServiceSlug(normalizedPayload.slug, Number(id));
+  await service.update(normalizedPayload);
+  return service;
+}
+
+export async function deleteService(id) {
+  const service = await Service.findByPk(id);
+
+  if (!service) {
+    throw new ApiError(404, "Service not found");
+  }
+
+  await service.destroy();
 }
 
 export async function resolveServiceLabel(input) {
