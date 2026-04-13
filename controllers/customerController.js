@@ -1,5 +1,6 @@
 import {
   createCustomer,
+  createCustomersBulk,
   deleteCustomer,
   getCustomerById,
   getCustomerStats,
@@ -12,6 +13,13 @@ import { sendSuccess } from "../utils/response.js";
 export const createCustomerController = asyncHandler(async (req, res) => {
   const customer = await createCustomer(req.body);
   return sendSuccess(res, 201, "Customer created successfully", customer);
+});
+
+export const createCustomersBulkController = asyncHandler(async (req, res) => {
+  const result = await createCustomersBulk(req.body?.customers);
+  return sendSuccess(res, 201, "Customers uploaded successfully", result.customers, {
+    insertedCount: result.insertedCount,
+  });
 });
 
 export const listCustomersController = asyncHandler(async (req, res) => {

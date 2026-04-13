@@ -29,10 +29,7 @@ const Customer = sequelize.define(
     pin_code: DataTypes.STRING(10),
     status: DataTypes.STRING(50),
     area: DataTypes.STRING(255),
-    refer: {
-      type: DataTypes.STRING(255),
-      field: "refer",
-    },
+    refer: DataTypes.STRING(255),
     assessment_year: DataTypes.STRING(20),
     allotted_by: DataTypes.STRING(255),
     allotted_to: DataTypes.STRING(255),

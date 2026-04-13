@@ -2,24 +2,68 @@ import { Op } from "sequelize";
 import Customer from "../models/customerModel.js";
 import { ApiError } from "../middlewares/errorMiddleware.js";
 import { validateCustomerPayload } from "../utils/validators.js";
+import { sequelize } from "../config/database.config.js";
+
+async function getCustomerTableColumns() {
+  const tableName = Customer.getTableName();
+  const queryInterface = sequelize.getQueryInterface();
+  const tableDefinition = await queryInterface.describeTable(tableName);
+  return new Set(Object.keys(tableDefinition));
+}
+
+async function getSelectableCustomerAttributes() {
+  const existingColumns = await getCustomerTableColumns();
+
+  return Object.entries(Customer.rawAttributes)
+    .filter(([, attribute]) => existingColumns.has(attribute.field || attribute.fieldName))
+    .map(([attributeName]) => attributeName);
+}
+
+async function filterPayloadToExistingCustomerColumns(payload = {}) {
+  const existingColumns = await getCustomerTableColumns();
+
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key]) => {
+      const attribute = Customer.rawAttributes[key];
+
+      if (!attribute) {
+        return false;
+      }
+
+      return existingColumns.has(attribute.field || attribute.fieldName);
+    })
+  );
+}
 
 function normalizeCustomerPayload(payload = {}) {
   const normalized = { ...payload };
 
+  Object.keys(normalized).forEach((key) => {
+    if (typeof normalized[key] === "string") {
+      normalized[key] = normalized[key].trim();
+    }
+  });
+
   if (normalized.pan_no) {
-    normalized.pan_no = String(normalized.pan_no).trim().toUpperCase();
+    normalized.pan_no = String(normalized.pan_no)
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase();
   }
 
   if (normalized.adhaar_number) {
-    normalized.adhaar_number = String(normalized.adhaar_number).trim();
+    normalized.adhaar_number = String(normalized.adhaar_number).replace(/\D/g, "");
   }
 
-  if (normalized.file_no) {
-    normalized.file_no = String(normalized.file_no).trim();
+  if (normalized.contact) {
+    normalized.contact = String(normalized.contact).replace(/\D/g, "");
   }
 
-  if (normalized.client_name) {
-    normalized.client_name = String(normalized.client_name).trim();
+  if (normalized.pin_code) {
+    normalized.pin_code = String(normalized.pin_code).replace(/\D/g, "");
+  }
+
+  if (normalized.date_of_birth === "") {
+    normalized.date_of_birth = null;
   }
 
   return normalized;
@@ -60,11 +104,138 @@ async function ensureUniqueCustomerFields(payload, customerId = null) {
   });
 }
 
+function getDuplicateLabelsForRows(rows = []) {
+  const uniqueChecks = [
+    { key: "file_no", label: "File number" },
+    { key: "pan_no", label: "PAN number" },
+    { key: "adhaar_number", label: "Aadhaar number" },
+    { key: "contact", label: "Contact number" },
+  ];
+
+  const seen = new Map();
+  const duplicates = [];
+
+  rows.forEach((row, index) => {
+    uniqueChecks.forEach(({ key, label }) => {
+      const value = row[key];
+
+      if (!value) {
+        return;
+      }
+
+      const mapKey = `${key}:${value}`;
+
+      if (seen.has(mapKey)) {
+        duplicates.push({
+          row: index + 2,
+          field: label,
+          value,
+          conflictsWithRow: seen.get(mapKey),
+        });
+        return;
+      }
+
+      seen.set(mapKey, index + 2);
+    });
+  });
+
+  return duplicates;
+}
+
+async function ensureUniqueCustomerFieldsForBulk(rows) {
+  const duplicateRows = getDuplicateLabelsForRows(rows);
+
+  if (duplicateRows.length > 0) {
+    throw new ApiError(409, "Duplicate values found in uploaded file", {
+      duplicateRows,
+    });
+  }
+
+  const uniqueChecks = [
+    { key: "file_no", label: "File number" },
+    { key: "pan_no", label: "PAN number" },
+    { key: "adhaar_number", label: "Aadhaar number" },
+    { key: "contact", label: "Contact number" },
+  ];
+
+  const where = {
+    [Op.or]: uniqueChecks
+      .flatMap(({ key }) => [...new Set(rows.map((row) => row[key]).filter(Boolean))].map((value) => ({ [key]: value }))),
+  };
+
+  if (where[Op.or].length === 0) {
+    return;
+  }
+
+  const existingCustomers = await Customer.findAll({ where });
+
+  if (existingCustomers.length === 0) {
+    return;
+  }
+
+  const duplicateFields = [];
+
+  rows.forEach((row, index) => {
+    uniqueChecks.forEach(({ key, label }) => {
+      if (row[key] && existingCustomers.some((customer) => customer[key] === row[key])) {
+        duplicateFields.push({
+          row: index + 2,
+          field: label,
+          value: row[key],
+        });
+      }
+    });
+  });
+
+  throw new ApiError(409, "Uploaded file contains values that already exist", {
+    duplicateFields,
+  });
+}
+
 export async function createCustomer(payload) {
   const normalizedPayload = normalizeCustomerPayload(payload);
   validateCustomerPayload(normalizedPayload);
   await ensureUniqueCustomerFields(normalizedPayload);
-  return Customer.create(normalizedPayload);
+  const safePayload = await filterPayloadToExistingCustomerColumns(normalizedPayload);
+  const customer = await Customer.create(safePayload);
+  return getCustomerById(customer.id);
+}
+
+export async function createCustomersBulk(payloadRows = []) {
+  if (!Array.isArray(payloadRows) || payloadRows.length === 0) {
+    throw new ApiError(400, "Upload file must contain at least one customer row");
+  }
+
+  const normalizedRows = payloadRows.map((row, index) => {
+    const normalizedRow = normalizeCustomerPayload(row);
+
+    try {
+      validateCustomerPayload(normalizedRow);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new ApiError(error.statusCode, `Row ${index + 2}: ${error.message}`, error.details);
+      }
+
+      throw error;
+    }
+
+    return normalizedRow;
+  });
+
+  await ensureUniqueCustomerFieldsForBulk(normalizedRows);
+
+  const safeRows = await Promise.all(
+    normalizedRows.map((row) => filterPayloadToExistingCustomerColumns(row))
+  );
+
+  const createdCustomers = await sequelize.transaction(async (transaction) =>
+    Customer.bulkCreate(safeRows, { transaction })
+  );
+
+  return {
+    insertedCount: createdCustomers.length,
+    customers: await Promise.all(createdCustomers.map((customer) => getCustomerById(customer.id))),
+  };
 }
 
 export async function listCustomers(query) {
@@ -110,10 +281,13 @@ export async function listCustomers(query) {
     where.area = area;
   }
 
+  const attributes = await getSelectableCustomerAttributes();
+
   const { count, rows } = await Customer.findAndCountAll({
     where,
     limit,
     offset,
+    attributes,
     order: [[sortBy, sortOrder]],
   });
 
@@ -129,7 +303,8 @@ export async function listCustomers(query) {
 }
 
 export async function getCustomerById(id) {
-  const customer = await Customer.findByPk(id);
+  const attributes = await getSelectableCustomerAttributes();
+  const customer = await Customer.findByPk(id, { attributes });
 
   if (!customer) {
     throw new ApiError(404, "Customer not found");
@@ -143,8 +318,9 @@ export async function updateCustomer(id, payload) {
   const normalizedPayload = normalizeCustomerPayload(payload);
   validateCustomerPayload(normalizedPayload, { isUpdate: true });
   await ensureUniqueCustomerFields(normalizedPayload, id);
-  await customer.update(normalizedPayload);
-  return customer;
+  const safePayload = await filterPayloadToExistingCustomerColumns(normalizedPayload);
+  await customer.update(safePayload);
+  return getCustomerById(id);
 }
 
 export async function deleteCustomer(id) {

@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createCustomerController,
+  createCustomersBulkController,
   deleteCustomerController,
   getCustomerByIdController,
   getCustomerStatsController,
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.use(authenticateAdmin);
 router.get("/stats", getCustomerStatsController);
+router.post("/bulk-upload", createCustomersBulkController);
 router.post("/", createCustomerController);
 router.get("/", listCustomersController);
 router.get("/:id", getCustomerByIdController);
