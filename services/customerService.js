@@ -108,8 +108,6 @@ function getDuplicateLabelsForRows(rows = []) {
   const uniqueChecks = [
     { key: "file_no", label: "File number" },
     { key: "pan_no", label: "PAN number" },
-    { key: "adhaar_number", label: "Aadhaar number" },
-    { key: "contact", label: "Contact number" },
   ];
 
   const seen = new Map();
@@ -154,8 +152,6 @@ async function ensureUniqueCustomerFieldsForBulk(rows) {
   const uniqueChecks = [
     { key: "file_no", label: "File number" },
     { key: "pan_no", label: "PAN number" },
-    { key: "adhaar_number", label: "Aadhaar number" },
-    { key: "contact", label: "Contact number" },
   ];
 
   const where = {
