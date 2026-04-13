@@ -89,7 +89,8 @@ async function ensureUniqueCustomerFields(payload, customerId = null) {
     where.id = { [Op.ne]: customerId };
   }
 
-  const existingCustomers = await Customer.findAll({ where });
+  const attributes = [...new Set(uniqueChecks.map(({ key }) => key))];
+  const existingCustomers = await Customer.findAll({ where, attributes });
 
   if (existingCustomers.length === 0) {
     return;
@@ -163,7 +164,8 @@ async function ensureUniqueCustomerFieldsForBulk(rows) {
     return;
   }
 
-  const existingCustomers = await Customer.findAll({ where });
+  const attributes = [...new Set(uniqueChecks.map(({ key }) => key))];
+  const existingCustomers = await Customer.findAll({ where, attributes });
 
   if (existingCustomers.length === 0) {
     return;
