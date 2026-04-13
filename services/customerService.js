@@ -210,7 +210,7 @@ export async function createCustomersBulk(payloadRows = []) {
     const normalizedRow = normalizeCustomerPayload(row);
 
     try {
-      validateCustomerPayload(normalizedRow);
+      validateCustomerPayload(normalizedRow, { skipFormatValidation: true });
     } catch (error) {
       if (error instanceof ApiError) {
         throw new ApiError(error.statusCode, `Row ${index + 2}: ${error.message}`, error.details);

@@ -38,9 +38,16 @@ export function validateAdminCreatePayload(payload) {
   }
 }
 
-export function validateCustomerPayload(payload, { isUpdate = false } = {}) {
+export function validateCustomerPayload(
+  payload,
+  { isUpdate = false, skipFormatValidation = false } = {}
+) {
   if (!isUpdate) {
     validateRequiredFields(payload, ["file_no", "client_name"]);
+  }
+
+  if (skipFormatValidation) {
+    return;
   }
 
   if (payload.pan_no && !panRegex.test(String(payload.pan_no).trim().toUpperCase())) {
