@@ -1,0 +1,26 @@
+CREATE TABLE IF NOT EXISTS services (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL UNIQUE,
+  price DECIMAL(12,2) NULL,
+  details LONGTEXT NOT NULL,
+  image_url VARCHAR(500) NULL,
+  meta_description VARCHAR(255) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS inquiries (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  service VARCHAR(255) NOT NULL,
+  client_email VARCHAR(255) NULL,
+  status ENUM('new', 'contacted', 'converted', 'closed') NOT NULL DEFAULT 'new',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_inquiries_phone (phone),
+  INDEX idx_inquiries_status (status),
+  INDEX idx_inquiries_created_at (created_at)
+);

@@ -1,13 +1,29 @@
 import { Op } from "sequelize";
 import WorkDiaryEntry from "../models/workDiaryModel.js";
+import { sequelize } from "../config/database.config.js";
 import { ApiError } from "../middlewares/errorMiddleware.js";
 import { validateWorkDiaryPayload } from "../utils/validators.js";
 
 function normalizeDiaryPayload(payload = {}) {
   return {
     ...payload,
+    serial_no:
+      payload.serial_no === undefined || payload.serial_no === null || String(payload.serial_no).trim() === ""
+        ? null
+        : Number(payload.serial_no),
     entry_type: payload.entry_type ? String(payload.entry_type).trim().toLowerCase() : payload.entry_type,
-    amount: payload.amount !== undefined ? Number(payload.amount) : payload.amount,
+    client_name: payload.client_name ? String(payload.client_name).trim() : payload.client_name,
+    contact_details: payload.contact_details ? String(payload.contact_details).trim() : payload.contact_details,
+    person_in_contact: payload.person_in_contact
+      ? String(payload.person_in_contact).trim()
+      : payload.person_in_contact,
+    financial_year: payload.financial_year ? String(payload.financial_year).trim() : payload.financial_year,
+    assessment_year: payload.assessment_year ? String(payload.assessment_year).trim() : payload.assessment_year,
+    status: payload.status ? String(payload.status).trim() : payload.status,
+    amount:
+      payload.amount === undefined || payload.amount === null || String(payload.amount).trim() === ""
+        ? payload.amount
+        : Number(payload.amount),
   };
 }
 
@@ -15,6 +31,37 @@ export async function createWorkDiaryEntry(payload) {
   const normalizedPayload = normalizeDiaryPayload(payload);
   validateWorkDiaryPayload(normalizedPayload);
   return WorkDiaryEntry.create(normalizedPayload);
+}
+
+export async function createWorkDiaryEntriesBulk(rows = []) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new ApiError(400, "Please provide at least one work diary row");
+  }
+
+  const normalizedRows = rows.map((row, index) => {
+    try {
+      const normalizedRow = normalizeDiaryPayload(row);
+      validateWorkDiaryPayload(normalizedRow);
+      return normalizedRow;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new ApiError(400, `Row ${index + 1}: ${error.message}`, error.details);
+      }
+
+      throw error;
+    }
+  });
+
+  return sequelize.transaction(async (transaction) => {
+    const entries = await WorkDiaryEntry.bulkCreate(normalizedRows, {
+      transaction,
+    });
+
+    return {
+      entries,
+      insertedCount: entries.length,
+    };
+  });
 }
 
 export async function listWorkDiaryEntries(query) {

@@ -41,6 +41,8 @@ const envconfig = {
     admin: readEnv("ADMIN_TABLE", "admin"),
     customers: readEnv("CUSTOMER_TABLE", "clients"),
     workDiary: readEnv("WORK_DIARY_TABLE", "work_diary_entries"),
+    services: readEnv("SERVICES_TABLE", "services"),
+    inquiries: readEnv("INQUIRIES_TABLE", "inquiries"),
   },
 };
 

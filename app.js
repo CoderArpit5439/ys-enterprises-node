@@ -3,10 +3,15 @@ import cors from "cors";
 import envconfig from "./config/enviormentconfig.js";
 import { sequelize } from "./config/database.config.js";
 import Admin from "./models/adminModel.js";
+import Service from "./models/serviceModel.js";
+import Inquiry from "./models/inquiryModel.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import workDiaryRoutes from "./routes/workDiaryRoutes.js";
+import serviceRoutes from "./routes/serviceRoutes.js";
+import inquiryRoutes from "./routes/inquiryRoutes.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorMiddleware.js";
+import { seedDefaultServices } from "./services/serviceService.js";
 
 const app = express();
 
@@ -36,6 +41,8 @@ app.get("/api/health", (req, res) => {
 app.use("/api/admin", adminRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/work-diary", workDiaryRoutes);
+app.use("/api/services", serviceRoutes);
+app.use("/api/inquiry", inquiryRoutes);
 
 notFoundHandler(app);
 app.use(errorHandler);
@@ -48,6 +55,10 @@ async function startServer() {
     console.log("Database connected successfully");
     await Admin.sync();
     console.log("Admin table is ready");
+    await Service.sync();
+    await Inquiry.sync();
+    await seedDefaultServices();
+    console.log("Service and inquiry tables are ready");
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

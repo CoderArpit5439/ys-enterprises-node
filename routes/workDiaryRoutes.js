@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  createWorkDiaryBulkController,
   createWorkDiaryController,
   deleteWorkDiaryController,
   getWorkDiaryByIdController,
@@ -11,6 +12,7 @@ import { authenticateAdmin } from "../middlewares/authMiddleware.js";
 const router = express.Router();
 
 router.use(authenticateAdmin);
+router.post("/bulk-upload", createWorkDiaryBulkController);
 router.post("/", createWorkDiaryController);
 router.get("/", listWorkDiaryController);
 router.get("/:id", getWorkDiaryByIdController);

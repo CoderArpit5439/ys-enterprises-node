@@ -4,6 +4,7 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const aadhaarRegex = /^[0-9]{12}$/;
 const phoneRegex = /^(\+91[\-\s]?)?[0]?(91)?[6-9]\d{9}$/;
+const inquiryStatusValues = ["new", "contacted", "converted", "closed"];
 
 export function validateRequiredFields(payload, requiredFields) {
   const missingFields = requiredFields.filter((field) => {
@@ -72,5 +73,23 @@ export function validateWorkDiaryPayload(payload) {
 
   if (Number.isNaN(Number(payload.amount))) {
     throw new ApiError(400, "Amount must be numeric");
+  }
+}
+
+export function validateInquiryPayload(payload) {
+  validateRequiredFields(payload, ["name", "phone", "service"]);
+
+  if (!phoneRegex.test(String(payload.phone).replace(/\s/g, ""))) {
+    throw new ApiError(400, "Phone number must be a valid 10-digit mobile number");
+  }
+
+  if (payload.client_email && !emailRegex.test(String(payload.client_email).trim())) {
+    throw new ApiError(400, "Please provide a valid email address");
+  }
+}
+
+export function validateInquiryStatus(status) {
+  if (!inquiryStatusValues.includes(String(status || "").trim().toLowerCase())) {
+    throw new ApiError(400, "Status must be one of new, contacted, converted, or closed");
   }
 }

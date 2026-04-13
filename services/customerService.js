@@ -7,15 +7,14 @@ import { sequelize } from "../config/database.config.js";
 async function getCustomerTableColumns() {
   const tableName = Customer.getTableName();
   const queryInterface = sequelize.getQueryInterface();
-  const tableDefinition = await queryInterface.describeTable(tableName);
-  return new Set(Object.keys(tableDefinition));
+  return queryInterface.describeTable(tableName);
 }
 
 async function getSelectableCustomerAttributes() {
   const existingColumns = await getCustomerTableColumns();
 
   return Object.entries(Customer.rawAttributes)
-    .filter(([, attribute]) => existingColumns.has(attribute.field || attribute.fieldName))
+    .filter(([, attribute]) => Boolean(existingColumns[attribute.field || attribute.fieldName]))
     .map(([attributeName]) => attributeName);
 }
 
@@ -30,7 +29,47 @@ async function filterPayloadToExistingCustomerColumns(payload = {}) {
         return false;
       }
 
-      return existingColumns.has(attribute.field || attribute.fieldName);
+      return Boolean(existingColumns[attribute.field || attribute.fieldName]);
+    })
+  );
+}
+
+function trimValueToColumnDefinition(value, columnDefinition) {
+  if (value === undefined || value === null || typeof value !== "string" || !columnDefinition?.type) {
+    return value;
+  }
+
+  const columnType = String(columnDefinition.type).toUpperCase();
+  const varcharMatch = columnType.match(/(?:VAR)?CHAR\((\d+)\)/);
+
+  if (varcharMatch) {
+    return value.slice(0, Number(varcharMatch[1]));
+  }
+
+  const enumMatch = columnType.match(/^ENUM\((.*)\)$/);
+
+  if (enumMatch) {
+    const allowedValues = Array.from(enumMatch[1].matchAll(/'((?:\\'|[^'])*)'/g)).map((match) =>
+      match[1].replace(/\\'/g, "'")
+    );
+
+    if (!allowedValues.includes(value)) {
+      return columnDefinition.allowNull ? null : allowedValues[0] || value;
+    }
+  }
+
+  return value;
+}
+
+async function alignPayloadToCustomerSchema(payload = {}) {
+  const existingColumns = await getCustomerTableColumns();
+  const filteredPayload = await filterPayloadToExistingCustomerColumns(payload);
+
+  return Object.fromEntries(
+    Object.entries(filteredPayload).map(([key, value]) => {
+      const attribute = Customer.rawAttributes[key];
+      const columnDefinition = existingColumns[attribute?.field || attribute?.fieldName];
+      return [key, trimValueToColumnDefinition(value, columnDefinition)];
     })
   );
 }
@@ -194,7 +233,7 @@ export async function createCustomer(payload) {
   const normalizedPayload = normalizeCustomerPayload(payload);
   validateCustomerPayload(normalizedPayload);
   await ensureUniqueCustomerFields(normalizedPayload);
-  const safePayload = await filterPayloadToExistingCustomerColumns(normalizedPayload);
+  const safePayload = await alignPayloadToCustomerSchema(normalizedPayload);
   const customer = await Customer.create(safePayload);
   return getCustomerById(customer.id);
 }
@@ -223,7 +262,7 @@ export async function createCustomersBulk(payloadRows = []) {
   await ensureUniqueCustomerFieldsForBulk(normalizedRows);
 
   const safeRows = await Promise.all(
-    normalizedRows.map((row) => filterPayloadToExistingCustomerColumns(row))
+    normalizedRows.map((row) => alignPayloadToCustomerSchema(row))
   );
 
   const createdCustomers = await sequelize.transaction(async (transaction) =>
@@ -316,7 +355,7 @@ export async function updateCustomer(id, payload) {
   const normalizedPayload = normalizeCustomerPayload(payload);
   validateCustomerPayload(normalizedPayload, { isUpdate: true });
   await ensureUniqueCustomerFields(normalizedPayload, id);
-  const safePayload = await filterPayloadToExistingCustomerColumns(normalizedPayload);
+  const safePayload = await alignPayloadToCustomerSchema(normalizedPayload);
   await customer.update(safePayload);
   return getCustomerById(id);
 }

@@ -1,5 +1,6 @@
 import {
   createWorkDiaryEntry,
+  createWorkDiaryEntriesBulk,
   deleteWorkDiaryEntry,
   getWorkDiaryEntryById,
   listWorkDiaryEntries,
@@ -11,6 +12,19 @@ import { sendSuccess } from "../utils/response.js";
 export const createWorkDiaryController = asyncHandler(async (req, res) => {
   const entry = await createWorkDiaryEntry(req.body);
   return sendSuccess(res, 201, "Work diary entry created successfully", entry);
+});
+
+export const createWorkDiaryBulkController = asyncHandler(async (req, res) => {
+  const { rows = [] } = req.body || {};
+  const result = await createWorkDiaryEntriesBulk(rows);
+
+  return sendSuccess(
+    res,
+    201,
+    "Work diary uploaded successfully",
+    result.entries,
+    { insertedCount: result.insertedCount }
+  );
 });
 
 export const listWorkDiaryController = asyncHandler(async (req, res) => {
